@@ -1,0 +1,26 @@
+import typing
+
+from typing_extensions import Protocol
+
+
+class MQSenderProtocol(Protocol):
+    def post_message(self, message_payload: typing.Dict[str, str]) -> None: ...
+
+    def close_connection(self) -> None: ...
+
+
+class MQSenderFactoryProtocol(Protocol):
+    @staticmethod
+    def get_mq_sender(mq_sender_type: str, **kwargs) -> MQSenderProtocol: ...
+
+
+class MessagingThreadProtocol(Protocol):
+    def mq_sender(self) -> MQSenderProtocol: ...
+
+    def run(self) -> None: ...
+
+    def start(self) -> None: ...
+
+    def stop(self) -> None: ...
+
+    def join(self, timeout=None) -> None: ...
