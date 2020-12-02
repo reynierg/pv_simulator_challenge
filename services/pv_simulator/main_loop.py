@@ -5,6 +5,8 @@ import pathlib
 import time
 import typing
 
+import tenacity
+
 from services.pv_simulator.delayed_keyboard_interrupt import DelayedKeyboardInterrupt
 from services.pv_simulator.typing_custom_protocols import (
     MQReceiverProtocol,
@@ -219,6 +221,12 @@ class MainLoop:
                         break
 
                 time.sleep(2)
+
+        except tenacity.RetryError:
+            # If we're here, is because the allocated execution time has lapsed.
+            self._log.info("Giving up trying to get a Meter's generated power value from the AMQP broker, "
+                           "because the allocated execution time has elapsed.")
+
         except KeyboardInterrupt:
             self._log.warning("Required to abort...")
 
