@@ -75,18 +75,25 @@ class PikaMQReceiver(MQReceiver):
 
         self._log.debug(f"{self.__class__.__name__}._read_message(ack_on_receive={ack_on_receive})")
         method_frame, header, body = self.channel.basic_get(self._queue_name)
+        msg_payload: typing.Optional[typing.Dict[str, str]] = None
         if method_frame:
             # An available message was successfully acquired:
             delivery_tag = method_frame.delivery_tag
-            msg_payload = json.loads(body.decode())
-            if ack_on_receive:
-                self._ack_message(delivery_tag)
+            try:
+                msg_payload = json.loads(body.decode())
+            except Exception:
+                self._log.exception("Looks like the message's payload is malformed or not a valid JSON document:")
+                # Acknowledge the message, and forget about it:
+                self.ack_message(delivery_tag)
             else:
-                msg_payload[self.DELIVERY_TAG] = delivery_tag
+                if ack_on_receive:
+                    self.ack_message(delivery_tag)
+                else:
+                    # Include the message's delivery tag in the returned dict, so that the caller can acknowledge
+                    # it when he deems it convenient:
+                    msg_payload[self.DELIVERY_TAG] = delivery_tag
 
-            return msg_payload
-
-        return None
+        return msg_payload
 
     def _reconnect_and_read_message(self, ack_on_receive: bool = False) -> typing.Optional[typing.Dict[str, str]]:
         """Tries to re-connect to the AMQP broker, and read the next pending message from it.
