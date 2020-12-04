@@ -7,3 +7,6 @@ pika==1.1.0
 typing-extensions==3.7.4.3
 six==1.15.0
 tenacity==6.2.0
+dataclasses==0.8
+pydantic==1.7.3
+

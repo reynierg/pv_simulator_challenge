@@ -5,9 +5,11 @@ import pathlib
 import time
 import typing
 
+from pydantic import ValidationError
 import tenacity
 
 from services.pv_simulator.delayed_keyboard_interrupt import DelayedKeyboardInterrupt
+from services.pv_simulator.models import MsgPayloadModel
 from services.pv_simulator.typing_custom_protocols import (
     MQReceiverProtocol,
     PVPowerValueCalculatorProtocol
@@ -199,21 +201,25 @@ class MainLoop:
                     # time of the day, trying to replicate the PV power values depicted in the
                     # PV Power(kW)/DayTime diagram in the received PV Simulator Challenge document.
                     # The generated PV power value will reach its peak value around 14:24:
-                    now_datetime = datetime.datetime.now()
-                    self._log.debug(f"now_datetime: {now_datetime}")
-                    now_in_minutes_from_0000 = now_datetime.hour * 60 + now_datetime.minute
-                    pv_power_value = self._pv_power_value_calculator.get_pv_power_value(now_in_minutes_from_0000)
-                    meter_power = msg_payload.get('meter_power')
-                    meter_power_in_kw = int(meter_power) / 1000
-                    pv_power_value_in_kw = pv_power_value / 1000
-                    # Write to a file: current timestamp, meter power value acquired from RabbitMQ,
-                    # generated PV power value and the sum of the powers (meter + PV):
-                    self._results_log.info(f"{now_datetime.strftime('%d.%m.%Y %H:%M:%S')},"
-                                           f"{meter_power_in_kw:.2f},"
-                                           f"{pv_power_value_in_kw:.2f},"
-                                           f"{(meter_power_in_kw + pv_power_value_in_kw):.2f}")
+                    try:
+                        msg_payload_model: MsgPayloadModel = MsgPayloadModel(**msg_payload)
+                    except ValidationError:
+                        self._log.exception("Message's payload is invalid:")
+                    else:
+                        now_datetime = datetime.datetime.now()
+                        self._log.debug(f"now_datetime: {now_datetime}")
+                        now_in_minutes_from_0000 = now_datetime.hour * 60 + now_datetime.minute
+                        pv_power_value = self._pv_power_value_calculator.get_pv_power_value(now_in_minutes_from_0000)
+                        meter_power_in_kw = int(msg_payload_model.meter_power) / 1000
+                        pv_power_value_in_kw = pv_power_value / 1000
+                        # Write to a file: current timestamp, meter power value acquired from RabbitMQ,
+                        # generated PV power value and the sum of the powers (meter + PV):
+                        self._results_log.info(f"{now_datetime.strftime('%d.%m.%Y %H:%M:%S')},"
+                                               f"{meter_power_in_kw:.2f},"
+                                               f"{pv_power_value_in_kw:.2f},"
+                                               f"{(meter_power_in_kw + pv_power_value_in_kw):.2f}")
 
-                    delivery_tag = msg_payload.pop(self._mq_receiver.DELIVERY_TAG, None)
+                    delivery_tag = msg_payload.get(self._mq_receiver.DELIVERY_TAG, None)
                     if delivery_tag is not None:
                         self._mq_receiver.ack_message(delivery_tag)
 
