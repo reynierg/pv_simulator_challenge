@@ -92,6 +92,8 @@ class MainLoop:
 
         self._meter_value_observers: typing.List = list()
 
+        self._sys_argv: typing.Optional[typing.List[str]] = None
+
     def _check_if_must_exit(self) -> typing.Tuple[bool, datetime.datetime]:
         """Determines if the process's main execution thread must abort its execution
 
@@ -134,9 +136,9 @@ class MainLoop:
         print("")
         print("Examples:")
         print("\tFor run tests:")
-        print("\t\tpython -a test")
+        print(f"\t\tpython {self._sys_argv[0]} -a test")
         print("\tFor run PV power simulator:")
-        print("\t\tpython -a start")
+        print(f"\t\tpython {self._sys_argv[0]} -a start")
 
     def _run_tests_handler(self) -> None:
         """Executes the pre-configured tests.
@@ -264,6 +266,7 @@ class MainLoop:
 
         self._log.debug(f"{self.__class__.__name__}._parse_arguments(sys_argv={sys_argv})")
         action = ""
+        self._sys_argv = sys_argv
         try:
             action = ""
             options, args = getopt.getopt(sys_argv[1:], "a:h", ["action=", "help"])
